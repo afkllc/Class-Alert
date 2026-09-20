@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Class Alert",
+  "description": "Get to your classes on time.",
+  "version": "1.0",
+  "permissions": [
+    "alarms",
+    "tabs",
+    "storage"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "class-alert-firefox-public@saqla.local",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Class Alert",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}
