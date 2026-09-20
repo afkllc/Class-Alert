@@ -1,54 +1,75 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. EXTRACT DATA PARAMETERS FROM TRANSITION URL STRING
     const urlParams = new URLSearchParams(window.location.search);
-    const className = urlParams.get('name') || "Scheduled Class";
-    const classTargetUrl = urlParams.get('url');
+    const presentation = ClassAlertUtils.normalizeAlertPresentation({
+        className: urlParams.get('name'),
+        classUrl: urlParams.get('url'),
+        title: urlParams.get('title'),
+        message: urlParams.get('message'),
+        showDismissButton: urlParams.get('showDismissButton')
+    });
 
-    const titleElement = document.getElementById('display-class-name');
+    const titleElement = document.getElementById('display-alert-title');
+    const classNameElement = document.getElementById('display-class-name');
+    const messageElement = document.getElementById('display-alert-message');
     const joinButton = document.getElementById('btn-join-trigger');
+    const dismissButton = document.getElementById('btn-dismiss-trigger');
 
-    titleElement.innerText = className;
+    titleElement.textContent = presentation.title;
+    classNameElement.textContent = presentation.className;
+    messageElement.textContent = presentation.message;
+    dismissButton.hidden = !presentation.showDismissButton;
 
-    const DEFAULT_ALERT_SETTINGS = {
-        soundEnabled: true,
-        skipIfClassTabOpen: true
-    };
-
-    // 2. ENCAPSULATED PERSISTENT AUDIO LIFECYCLE ENGINE
-    const audioAlarm = new Audio("chime.mp3");
-    audioAlarm.loop = true; // Continuous loop play out
+    const audioAlarm = new Audio('chime.mp3');
+    audioAlarm.loop = true;
     audioAlarm.volume = 1.0;
 
-    // Fire sound loop instantly. Unblocked safely since the screen is a foreground document.
-    browser.storage.local.get({ alertSettings: DEFAULT_ALERT_SETTINGS }).then((result) => {
-        const settings = { ...DEFAULT_ALERT_SETTINGS, ...result.alertSettings };
-        if (!settings.soundEnabled) return;
+    if (urlParams.get('soundEnabled') !== 'false') {
+        audioAlarm.play().catch(() => {});
+    }
 
-        audioAlarm.play().catch(err => {
-            console.log("Audio waiting for safety verification signal click:", err);
+    let actionTaken = false;
+    function stopAlert() {
+        audioAlarm.pause();
+        audioAlarm.removeAttribute('src');
+    }
+
+    function closeAlert() {
+        stopAlert();
+        window.close();
+    }
+
+    dismissButton.addEventListener('click', () => {
+        if (actionTaken) return;
+        actionTaken = true;
+        closeAlert();
+    });
+
+    joinButton.addEventListener('click', () => {
+        if (actionTaken) return;
+        actionTaken = true;
+        stopAlert();
+
+        if (!isAllowedTargetUrl(presentation.classUrl)) {
+            window.close();
+            return;
+        }
+
+        browser.windows.getCurrent().then((currentWindow) => {
+            return browser.tabs.create({
+                url: presentation.classUrl,
+                active: true,
+                windowId: currentWindow.id
+            });
+        }).then((createdTab) => {
+            browser.tabs.update(createdTab.id, { active: true });
+            browser.windows.update(createdTab.windowId, { focused: true });
+            window.close();
+        }).catch(() => {
+            window.close();
         });
     });
 
-    // 3. ACTION EVENT INTERCEPT ROUTER
-    joinButton.addEventListener('click', () => {
-        // Halt sound loop immediately upon acknowledgment 
-        audioAlarm.pause();
-        audioAlarm.src = ""; // Clears audio cache allocation streams
-
-        if (isAllowedTargetUrl(classTargetUrl)) {
-            // Open the class without overwriting the alert tab
-            browser.windows.getCurrent().then((currentWindow) => {
-                return browser.tabs.create({ url: classTargetUrl, active: true, windowId: currentWindow.id });
-            }).then((createdTab) => {
-                browser.tabs.update(createdTab.id, { active: true });
-                browser.windows.update(createdTab.windowId, { focused: true });
-                window.close();
-            });
-        } else {
-            // Fail safe fallback routing strategy
-            window.close();
-        }
-    });
+    joinButton.focus();
 });
 
 function isAllowedTargetUrl(value) {

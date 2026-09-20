@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Intercept</title>
+    <title>Class Alert</title>
     <style>
         :root {
             --bg-deep: #0f1115;
@@ -48,54 +48,12 @@
             /* High editorial whitespace */
         }
 
-        /* --- THE STATUS COMPONENT (No more pill) --- */
-        .live-signal {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--accent);
-            opacity: 0;
-            animation: fadeIn 0.8s ease-out forwards 0.2s;
-        }
-
-        /* The physical "recording light" dot */
-        .signal-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--accent);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--accent);
-            /* Tight, realistic light bleed */
-            animation: pulse-physical 2s infinite cubic-bezier(0.66, 0, 0, 1);
-        }
-
-        @keyframes pulse-physical {
-            0% {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.4;
-                transform: scale(0.9);
-            }
-
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
         /* --- HERO TYPOGRAPHY --- */
-        .class-title {
+        .alert-title {
             font-family: 'Antebas Bold', serif;
-            font-size: clamp(3.5rem, 5vw, 6rem);
+            font-size: clamp(1.5rem, 3vw, 2.5rem);
             font-weight: 800;
-            line-height: 1.0;
+            line-height: 1.1;
             letter-spacing: -0.04em;
             /* Tight editorial tracking */
             color: var(--text-main);
@@ -104,6 +62,27 @@
             opacity: 0;
             transform: translateY(20px);
             animation: riseUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.4s;
+        }
+
+        .class-title {
+            font-family: 'Antebas Bold', serif;
+            font-size: clamp(3rem, 5vw, 5rem);
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.04em;
+            color: var(--text-main);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: riseUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.4s;
+        }
+
+        .alert-message {
+            max-width: 560px;
+            color: var(--text-sub);
+            font-size: 1rem;
+            line-height: 1.5;
+            opacity: 0;
+            animation: fadeIn 0.8s ease-out forwards 0.5s;
         }
 
         /* --- INTERFACE BUTTON --- */
@@ -140,6 +119,38 @@
             background-color: #e0e0e0;
         }
 
+        .btn-dismiss {
+            appearance: none;
+            border: 1px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            font: inherit;
+            font-size: 0.95rem;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0;
+            animation: fadeIn 0.8s ease-out forwards 0.7s;
+        }
+
+        .btn-dismiss:hover {
+            border-color: var(--accent);
+            color: var(--text-main);
+            background: rgba(247, 81, 66, 0.12);
+        }
+
+        .btn-dismiss[hidden] {
+            display: none;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
         /* --- ANIMATION UTILS --- */
         @keyframes fadeIn {
             to {
@@ -153,26 +164,34 @@
                 transform: translateY(0);
             }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 
 <body>
 
     <div class="container">
-        <!-- The New "Broadcast" Status -->
-        <div class="live-signal">
-            <!-- <div class="signal-dot"></div> -->
-            <span>Session Active</span>
-        </div>
-
-        <!-- The Class Name -->
+        <p class="alert-title" id="display-alert-title">Class starting now</p>
         <h1 class="class-title" id="display-class-name">...</h1>
+        <p class="alert-message" id="display-alert-message">Your scheduled class is ready to join.</p>
 
-        <!-- The Tactile Action -->
-        <button class="btn-launch" id="btn-join-trigger"
-            style="animation: pulse-physical 2s infinite cubic-bezier(0.66, 0, 0, 1);">Join Now</button>
+        <div class="button-row">
+            <button class="btn-launch" id="btn-join-trigger">Join Now</button>
+            <button class="btn-dismiss" id="btn-dismiss-trigger" type="button">Dismiss</button>
+        </div>
     </div>
 
+    <script src="schedule-utils.js"></script>
     <script src="alert.js"></script>
 </body>
 

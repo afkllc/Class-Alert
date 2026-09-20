@@ -8,7 +8,10 @@ const exportBtn = document.getElementById('export-config');
 const importBtn = document.getElementById('import-config');
 const importFile = document.getElementById('import-file');
 const soundEnabledInput = document.getElementById('sound-enabled');
-const skipIfClassTabOpenInput = document.getElementById('skip-if-class-tab-open');
+const alertLeadMinutesInput = document.getElementById('alert-lead-minutes');
+const alertTitleInput = document.getElementById('alert-title');
+const alertMessageInput = document.getElementById('alert-message');
+const showDismissButtonInput = document.getElementById('show-dismiss-button');
 
 const dayNames = { "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday", "0": "Sunday" };
 let statusTimeoutId = null;
@@ -17,10 +20,7 @@ let statusTimeoutId = null;
 const THEME_ROTATION = ['system', 'light', 'dark'];
 const CONFIG_VERSION = 1;
 const MAX_CONFIG_BYTES = 1024 * 1024;
-const DEFAULT_ALERT_SETTINGS = {
-    soundEnabled: true,
-    skipIfClassTabOpen: true
-};
+const DEFAULT_ALERT_SETTINGS = ClassAlertUtils.DEFAULT_ALERT_SETTINGS;
 let editingClass = null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -135,7 +135,10 @@ exportBtn.addEventListener('click', exportConfig);
 importBtn.addEventListener('click', () => importFile.click());
 importFile.addEventListener('change', importConfig);
 soundEnabledInput.addEventListener('change', saveAlertSettings);
-skipIfClassTabOpenInput.addEventListener('change', saveAlertSettings);
+alertLeadMinutesInput.addEventListener('change', saveAlertSettings);
+alertTitleInput.addEventListener('change', saveAlertSettings);
+alertMessageInput.addEventListener('change', saveAlertSettings);
+showDismissButtonInput.addEventListener('change', saveAlertSettings);
 
 clearBtn.addEventListener('click', () => {
     if (confirm("Are you sure you want to clear your entire schedule?")) {
@@ -264,17 +267,23 @@ function isAllowedClassUrl(value) {
 
 function loadAlertSettings() {
     browser.storage.local.get({ alertSettings: DEFAULT_ALERT_SETTINGS }).then((result) => {
-        const settings = { ...DEFAULT_ALERT_SETTINGS, ...result.alertSettings };
+        const settings = validateAlertSettings(result.alertSettings);
         soundEnabledInput.checked = settings.soundEnabled;
-        skipIfClassTabOpenInput.checked = settings.skipIfClassTabOpen;
+        alertLeadMinutesInput.value = String(settings.alertLeadMinutes);
+        alertTitleInput.value = settings.alertTitle;
+        alertMessageInput.value = settings.alertMessage;
+        showDismissButtonInput.checked = settings.showDismissButton;
     });
 }
 
 function saveAlertSettings() {
-    const alertSettings = {
+    const alertSettings = validateAlertSettings({
         soundEnabled: soundEnabledInput.checked,
-        skipIfClassTabOpen: skipIfClassTabOpenInput.checked
-    };
+        alertLeadMinutes: Number(alertLeadMinutesInput.value),
+        alertTitle: alertTitleInput.value,
+        alertMessage: alertMessageInput.value,
+        showDismissButton: showDismissButtonInput.checked
+    });
 
     browser.storage.local.set({ alertSettings }).then(() => {
         showStatus("Alert settings saved.", "success");
@@ -387,18 +396,7 @@ function validateConfig(config) {
 }
 
 function validateAlertSettings(settings) {
-    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-        return { ...DEFAULT_ALERT_SETTINGS };
-    }
-
-    return {
-        soundEnabled: typeof settings.soundEnabled === 'boolean'
-            ? settings.soundEnabled
-            : DEFAULT_ALERT_SETTINGS.soundEnabled,
-        skipIfClassTabOpen: typeof settings.skipIfClassTabOpen === 'boolean'
-            ? settings.skipIfClassTabOpen
-            : DEFAULT_ALERT_SETTINGS.skipIfClassTabOpen
-    };
+    return ClassAlertUtils.normalizeAlertSettings(settings, DEFAULT_ALERT_SETTINGS);
 }
 
 function showStatus(text, type) {

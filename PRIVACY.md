@@ -8,9 +8,9 @@ Class Alert does not use analytics, tracking scripts, remote code, ads, accounts
 
 ## Permissions
 
-- `storage`: Saves your schedule and settings locally.
-- `alarms`: Checks scheduled class times.
-- `tabs`: Opens alert pages and class links, and checks whether a saved class link is already open.
+- storage: Saves your schedule and settings locally.
+- alarms: Checks scheduled class times.
+- No website access or tab-reading permission is requested.
 
 ## Contact
 

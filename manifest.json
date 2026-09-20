@@ -5,12 +5,11 @@
   "version": "1.0",
   "permissions": [
     "alarms",
-    "tabs",
     "storage"
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "class-alert@open-source.local",
+      "id": "class-alert@afkllc",
       "data_collection_permissions": {
         "required": [
           "none"
@@ -20,6 +19,7 @@
   },
   "background": {
     "scripts": [
+      "schedule-utils.js",
       "background.js"
     ]
   },
