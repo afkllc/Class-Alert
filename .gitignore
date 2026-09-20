@@ -1,0 +1,13 @@
+web-ext-artifacts/
+*.zip
+*.xpi
+*.crx
+*.pem
+node_modules/
+.env
+.env.*
+web-ext-profile/
+.web-extension-id
+*.log
+Thumbs.db
+.DS_Store

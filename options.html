@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Class Alert Settings</title>
+    <style>
+        /* SYSTEM TOKENS - DOCKED TO YOUR PRECISE PALETTES */
+        :root {
+            --primary-accent: #f75142;
+            --primary-hover: #d94336;
+            --primary-glow: rgba(247, 81, 66, 0.15);
+
+            /* Dark Theme - Requested #1a1f26 base */
+            --bg-base: #1a1f26;
+            --bg-card: #222933;
+            --bg-input: #2d3644;
+            --border-subtle: #2d3644;
+            --text-main: #ffffff;
+            --text-muted: #8fa0b5;
+            --text-label: #cbd5e1;
+            --row-hover: #29323f;
+        }
+
+        body.light-theme {
+            /* Premium Light Theme */
+            --bg-base: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-input: #f8fafc;
+            --border-subtle: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --text-label: #334155;
+            --row-hover: #f1f5f9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-main);
+            padding: 50px 24px;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        .dashboard-container {
+            max-width: 680px;
+            /* Gently scaled layout container width */
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        h2 {
+            font-family: 'Antebas Bold', 'Antebas', system-ui, sans-serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.3px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: background-color 0.25s ease, border-color 0.25s ease;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--text-label);
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        input:focus,
+        select:focus,
+        button:focus-visible,
+        .theme-floating-widget:focus-visible {
+            outline: none;
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 4px var(--primary-glow);
+        }
+
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238fa0b5' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 40px;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 0;
+            border-top: 1px solid var(--border-subtle);
+            margin-bottom: 0;
+            text-transform: none;
+            letter-spacing: 0;
+            cursor: pointer;
+        }
+
+        .setting-row:first-of-type {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .setting-copy {
+            min-width: 0;
+        }
+
+        .setting-copy strong {
+            display: block;
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .setting-copy span {
+            display: block;
+            margin-top: 4px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+        }
+
+        .toggle-input {
+            width: 46px;
+            height: 26px;
+            flex: 0 0 auto;
+            appearance: none;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: 999px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .toggle-input::after {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            top: 3px;
+            left: 3px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        .toggle-input:checked {
+            background: var(--primary-accent);
+            border-color: var(--primary-accent);
+        }
+
+        .toggle-input:checked::after {
+            transform: translateX(20px);
+            background: #ffffff;
+        }
+
+        .btn-primary {
+            font-family: 'Antebas Bold', 'Antebas', system-ui, sans-serif;
+            width: 100%;
+            padding: 14px;
+            background: var(--primary-accent);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px dashed var(--border-subtle);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary-accent);
+            color: var(--primary-accent);
+            background: rgba(247, 81, 66, 0.03);
+        }
+
+        .config-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .config-actions .btn-secondary {
+            margin-top: 0;
+        }
+
+        .row-actions {
+            display: flex;
+            flex-shrink: 0;
+            gap: 8px;
+        }
+
+        .btn-edit,
+        .btn-delete {
+            min-width: 58px;
+        }
+
+        .btn-edit {
+            background: var(--bg-card);
+            color: var(--primary-accent);
+            border: 1px solid var(--border-subtle);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-edit:hover {
+            background: var(--primary-accent);
+            color: #ffffff;
+            border-color: var(--primary-accent);
+        }
+
+        /* SCHEDULE DATA ROWS FIX - Restructured row alignment and visibility */
+        .schedule-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .schedule-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-input);
+            /* Explicit contrast background block */
+            border: 1px solid var(--border-subtle);
+            padding: 14px 20px;
+            border-radius: 10px;
+            gap: 16px;
+        }
+
+        .schedule-row:hover {
+            background: var(--row-hover);
+        }
+
+        .schedule-text {
+            font-size: 0.92rem;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-grow: 1;
+        }
+
+        .schedule-text strong {
+            font-family: 'Antebas Bold', 'Antebas', system-ui, sans-serif;
+            color: var(--primary-accent);
+            margin-right: 6px;
+        }
+
+        .btn-delete {
+            background: var(--bg-card);
+            color: #ef4444;
+            border: 1px solid var(--border-subtle);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-delete:hover {
+            background: #ef4444;
+            color: #ffffff;
+            border-color: #ef4444;
+        }
+
+        /* STATE STATUS ELEMENTS */
+        .status-message {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .status-message.success {
+            background: rgba(247, 81, 66, 0.08);
+            color: var(--primary-accent);
+        }
+
+        .status-message.error {
+            background: rgba(255, 74, 74, 0.08);
+            color: #ff4a4a;
+        }
+
+        /* MICRO ICON THEME CONTROLLER IN BOTTOM-LEFT CORNER */
+        .theme-floating-widget {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            width: 44px;
+            height: 44px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 9999;
+        }
+
+        .theme-floating-widget:hover {
+            transform: scale(1.08);
+            border-color: var(--primary-accent);
+        }
+
+        .theme-icon {
+            width: 20px;
+            height: 20px;
+            fill: var(--primary-accent);
+            stroke: var(--primary-accent);
+            display: none;
+            transition: all 0.2s ease;
+        }
+
+        /* Conditional SVG Icon Display Visibility Rules */
+        body.mode-light .sun-icon {
+            display: block;
+        }
+
+        body.mode-dark .moon-icon {
+            display: block;
+        }
+
+        body.mode-system .system-icon {
+            display: block;
+        }
+
+        @media (max-width: 560px) {
+            body {
+                padding: 28px 14px 88px;
+            }
+
+            .dashboard-container {
+                gap: 18px;
+            }
+
+            .card {
+                padding: 22px;
+            }
+
+            .schedule-row {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .schedule-text {
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+
+            .row-actions,
+            .config-actions {
+                width: 100%;
+            }
+
+            .btn-edit,
+            .btn-delete {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard-container">
+
+        <!-- CARD 1: ADD CLASS FORM -->
+        <div class="card">
+            <h2>Add / Update Class</h2>
+
+            <div class="form-group">
+                <label for="day">Day of the Week</label>
+                <select id="day">
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                    <option value="0">Sunday</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="time">Time (24-Hour Format)</label>
+                <input type="time" id="time" required>
+            </div>
+
+            <div class="form-group">
+                <label for="name">Class Name</label>
+                <input type="text" id="name" placeholder="e.g., Math 101" required>
+            </div>
+
+            <div class="form-group">
+                <label for="url">Zoom / Link URL</label>
+                <input type="url" id="url" placeholder="https://zoom.us..." required>
+            </div>
+
+            <button id="save" class="btn-primary">Save Class</button>
+            <button id="cancel-edit" class="btn-secondary" type="button" hidden>Cancel Edit</button>
+            <div id="status" class="status-message"></div>
+        </div>
+
+        <!-- CARD 2: SAVED SCHEDULE LIST -->
+        <div class="card">
+            <h2>Saved Classes</h2>
+            <div id="schedule-list" class="schedule-list">None configured yet.</div>
+            <button id="clear-all" class="btn-secondary">Clear All Classes</button>
+            <div class="config-actions">
+                <button id="export-config" class="btn-secondary">Export Config</button>
+                <button id="import-config" class="btn-secondary">Import Config</button>
+            </div>
+            <input id="import-file" type="file" accept="application/json,.json" hidden>
+        </div>
+
+        <!-- CARD 3: ALERT BEHAVIOR -->
+        <div class="card">
+            <h2>Alert Options</h2>
+
+            <label class="setting-row" for="sound-enabled">
+                <span class="setting-copy">
+                    <strong>Sound</strong>
+                    <span>Play the chime when a class alert opens.</span>
+                </span>
+                <input id="sound-enabled" class="toggle-input" type="checkbox">
+            </label>
+
+            <label class="setting-row" for="skip-if-class-tab-open">
+                <span class="setting-copy">
+                    <strong>Skip Open Links</strong>
+                    <span>Do not alert when the class link is already open in a browser tab.</span>
+                </span>
+                <input id="skip-if-class-tab-open" class="toggle-input" type="checkbox">
+            </label>
+        </div>
+
+    </div>
+
+    <div class="theme-floating-widget" id="theme-widget-trigger" title="Switch Theme Mode" tabindex="0"
+        role="button" aria-label="Switch Theme Mode">
+
+        <!-- Light Mode Icon (Perfect Geometric Sun) -->
+        <svg class="theme-icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+
+        <!-- Dark Mode Icon (Moon) -->
+        <svg class="theme-icon moon-icon" viewBox="0 0 24 24">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+        </svg>
+
+        <!-- System Mode Icon (Monitor) -->
+        <svg class="theme-icon system-icon" viewBox="0 0 24 24">
+            <path
+                d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h7l-2 3v1h8v-1l-2-3h7c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H3V4h18v12z" />
+        </svg>
+
+    </div>
+
+
+
+
+    <script src="options.js"></script>
+</body>
+
+</html>

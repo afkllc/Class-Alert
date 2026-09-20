@@ -10,7 +10,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "class-alert-firefox-public@saqla.local",
+      "id": "class-alert@open-source.local",
       "data_collection_permissions": {
         "required": [
           "none"
