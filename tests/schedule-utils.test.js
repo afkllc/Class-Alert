@@ -145,3 +145,114 @@ test('getEffectiveAlertTitle explains early alerts when default title remains se
         'Join algebra'
     );
 });
+
+function lesson(overrides = {}) {
+    return {
+        id: 'lesson-1',
+        enabled: true,
+        name: 'Math',
+        url: 'https://example.test/math',
+        time: '09:00',
+        recurrence: { type: 'weekly', days: [1] },
+        ...overrides
+    };
+}
+
+test('weekly lesson matches every selected weekday', () => {
+    const item = lesson({ recurrence: { type: 'weekly', days: [1, 3] } });
+    assert.equal(utils.isLessonOccurrenceOnDate(item, localDate(2026, 9, 21, 9, 0)), true);
+    assert.equal(utils.isLessonOccurrenceOnDate(item, localDate(2026, 9, 22, 9, 0)), false);
+    assert.equal(utils.isLessonOccurrenceOnDate(item, localDate(2026, 9, 23, 9, 0)), true);
+});
+
+test('monthly day 31 uses final day in shorter months', () => {
+    const item = lesson({ recurrence: { type: 'monthly', dayOfMonth: 31, overflow: 'last-day' } });
+    assert.equal(utils.isLessonOccurrenceOnDate(item, localDate(2026, 2, 28, 9, 0)), true);
+    assert.equal(utils.isLessonOccurrenceOnDate(item, localDate(2026, 2, 27, 9, 0)), false);
+    assert.equal(utils.isLessonOccurrenceOnDate(item, localDate(2026, 4, 30, 9, 0)), true);
+});
+
+test('next occurrence uses local alert lead time', () => {
+    const item = lesson({ recurrence: { type: 'weekly', days: [1] }, time: '09:00' });
+    const next = utils.getNextLessonOccurrence(item, localDate(2026, 9, 20, 10, 0), 5);
+    assert.equal(next.scheduledTime, '2026-09-21T09:00:00');
+    assert.equal(next.alertTime, '2026-09-21T08:55:00');
+});
+
+test('date calculations do not mutate the caller date', () => {
+    const from = localDate(2026, 9, 20, 10, 0);
+    const before = from.getTime();
+    utils.getNextLessonOccurrence(lesson(), from, 0);
+    assert.equal(from.getTime(), before);
+});
+
+test('disabled lessons have no occurrence', () => {
+    assert.equal(utils.getNextLessonOccurrence(lesson({ enabled: false }), new Date(2026, 8, 20, 10, 0), 0), null);
+});
+
+test('near-term occurrence is skipped in favor of next recurrence', () => {
+    const item = lesson({ time: '17:00' });
+    const now = new Date(2026, 8, 21, 16, 59, 15);
+    const next = utils.getNextSchedulableOccurrence(item, now, 0, 60 * 1000);
+    assert.equal(next.skippedImmediateOccurrence, true);
+    assert.equal(next.dateKey, '2026-09-28');
+    assert.equal(next.alertTime, '2026-09-28T17:00:00');
+});
+
+test('weekly lessons conflict when selected weekdays and times overlap', () => {
+    const conflict = utils.lessonsConflict(
+        lesson({ id: 'new', time: '17:00', recurrence: { type: 'weekly', days: [1, 3] } }),
+        lesson({ id: 'old', time: '17:00', recurrence: { type: 'weekly', days: [3, 5] } })
+    );
+    assert.equal(conflict.conflict, true);
+});
+
+test('monthly overflow lessons conflict without calendar-cycle scanning', () => {
+    const conflict = utils.lessonsConflict(
+        lesson({ id: 'new', time: '17:00', recurrence: { type: 'monthly', dayOfMonth: 30, overflow: 'last-day' } }),
+        lesson({ id: 'old', time: '17:00', recurrence: { type: 'monthly', dayOfMonth: 31, overflow: 'last-day' } })
+    );
+    assert.equal(conflict.conflict, true);
+});
+
+test('weekly and monthly lessons at same time conflict directly', () => {
+    const conflict = utils.lessonsConflict(
+        lesson({ id: 'new', time: '17:00' }),
+        lesson({ id: 'old', time: '17:00', recurrence: { type: 'monthly', dayOfMonth: 15, overflow: 'last-day' } })
+    );
+    assert.equal(conflict.conflict, true);
+});
+
+test('different times do not conflict', () => {
+    const conflict = utils.lessonsConflict(
+        lesson({ time: '17:00' }),
+        lesson({ time: '17:01' })
+    );
+    assert.equal(conflict.conflict, false);
+});
+
+test('legacy schedule migrates to enabled weekly lessons', () => {
+    const result = utils.migrateLegacySchedule({
+        '1': { '09:00': { name: 'Math', url: 'https://example.test/math' } }
+    }, (() => {
+        let next = 0;
+        return () => `lesson-${++next}`;
+    })());
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.lessons[0], {
+        id: 'lesson-1',
+        enabled: true,
+        name: 'Math',
+        url: 'https://example.test/math',
+        time: '09:00',
+        recurrence: { type: 'weekly', days: [1] }
+    });
+});
+
+test('invalid legacy schedule returns errors without dropping source data', () => {
+    const legacy = { '1': { '09:00': { name: '', url: 'not-a-url' } } };
+    const result = utils.migrateLegacySchedule(legacy, () => 'lesson-1');
+    assert.equal(result.lessons.length, 0);
+    assert.equal(result.errors.length, 1);
+    assert.deepEqual(result.sourceBackup, legacy);
+});
