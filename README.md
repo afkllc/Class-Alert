@@ -2,12 +2,13 @@
 
 Class Alert is a Firefox extension that helps you join scheduled classes on time.
 
-Save weekly class times and meeting links, then get one focused alert page for each dated lesson. The alert includes a Join button and can be dismissed without opening the link. The extension stores data locally in Firefox and does not collect or transmit personal data.
+Save weekly or monthly class times and meeting links, then get one focused alert page for each lesson occurrence. Weekly lessons can use multiple days. Lessons can be edited or paused without deleting them. The alert includes a Join button and can be dismissed without opening the link. The extension stores data locally in Firefox and does not collect or transmit personal data.
 
 ## Features
 
-- Weekly class schedule
+- Weekly multi-day and monthly class schedule
 - One alert per scheduled lesson occurrence
+- Edit, pause, and resume lessons
 - Configurable alert timing, title, and message
 - Optional alert sound and Dismiss button
 - Light, dark, and system theme modes
@@ -24,7 +25,7 @@ See PRIVACY.md for details.
 Install web-ext through npx, then run:
 
     npx web-ext lint
-    npx web-ext build --overwrite-dest --ignore-files "docs/**" "tests/**" ".superpowers/**" "icon-source.png"
+    npx web-ext build --overwrite-dest --ignore-files "docs" "docs/**" "tests" "tests/**" ".superpowers" ".superpowers/**" "icon_source.png"
 
 For local testing in Firefox:
 

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Class Alert",
   "description": "Get to your classes on time.",
-  "version": "1.0",
+  "version": "1.1",
   "permissions": [
     "alarms",
     "storage"

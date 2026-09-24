@@ -160,6 +160,14 @@
             color: var(--text-main);
         }
 
+        .lesson-enabled-row.is-enabled .setting-copy strong {
+            color: #16a34a;
+        }
+
+        .lesson-enabled-row.is-paused .setting-copy strong {
+            color: #d97706;
+        }
+
         .setting-copy span {
             display: block;
             margin-top: 4px;
@@ -282,6 +290,33 @@
             border-color: var(--primary-accent);
         }
 
+        .btn-pause,
+        .btn-resume {
+            min-width: 58px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-pause { color: #d97706; }
+        .btn-resume { color: #16a34a; }
+        .btn-pause:hover {
+            background: #d97706;
+            color: #ffffff;
+            border-color: #d97706;
+        }
+        .btn-resume:hover {
+            background: #16a34a;
+            color: #ffffff;
+            border-color: #16a34a;
+        }
+
         /* SCHEDULE DATA ROWS FIX - Restructured row alignment and visibility */
         .schedule-list {
             display: flex;
@@ -358,6 +393,61 @@
         .status-message.error {
             background: rgba(255, 74, 74, 0.08);
             color: #ff4a4a;
+        }
+
+        .status-message.warning {
+            background: rgba(234, 179, 8, 0.12);
+            color: #ca8a04;
+        }
+
+        .migration-banner {
+            display: none;
+            background: rgba(234, 179, 8, 0.12);
+            border: 1px solid rgba(234, 179, 8, 0.35);
+            color: var(--text-main);
+            line-height: 1.45;
+        }
+
+        .weekday-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .weekday-option {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 10px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: var(--text-label);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .weekday-option input {
+            width: auto;
+            accent-color: var(--primary-accent);
+        }
+
+        .recurrence-help {
+            display: block;
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.35;
+        }
+
+        .schedule-row.is-paused {
+            opacity: 0.68;
+        }
+
+        .schedule-meta {
+            display: block;
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
         }
 
         /* MICRO ICON THEME CONTROLLER IN BOTTOM-LEFT CORNER */
@@ -446,26 +536,43 @@
 
     <div class="dashboard-container">
 
+        <div class="card migration-banner" id="migration-banner" role="alert"></div>
+
         <!-- CARD 1: ADD CLASS FORM -->
         <div class="card">
             <h2>Add / Update Class</h2>
 
             <div class="form-group">
-                <label for="day">Day of the Week</label>
-                <select id="day">
-                    <option value="1">Monday</option>
-                    <option value="2">Tuesday</option>
-                    <option value="3">Wednesday</option>
-                    <option value="4">Thursday</option>
-                    <option value="5">Friday</option>
-                    <option value="6">Saturday</option>
-                    <option value="0">Sunday</option>
-                </select>
+                <label for="time">Time (24-Hour Format)</label>
+                <input type="time" id="time" required>
             </div>
 
             <div class="form-group">
-                <label for="time">Time (24-Hour Format)</label>
-                <input type="time" id="time" required>
+                <label for="recurrence-type">Repeat</label>
+                <select id="recurrence-type">
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="weekly-days-group">
+                <label>Days of the Week</label>
+                <div class="weekday-grid">
+                    <label class="weekday-option"><input type="checkbox" value="1"> Monday</label>
+                    <label class="weekday-option"><input type="checkbox" value="2"> Tuesday</label>
+                    <label class="weekday-option"><input type="checkbox" value="3"> Wednesday</label>
+                    <label class="weekday-option"><input type="checkbox" value="4"> Thursday</label>
+                    <label class="weekday-option"><input type="checkbox" value="5"> Friday</label>
+                    <label class="weekday-option"><input type="checkbox" value="6"> Saturday</label>
+                    <label class="weekday-option"><input type="checkbox" value="0"> Sunday</label>
+                </div>
+                <span class="recurrence-help">Select every weekday when this class meets.</span>
+            </div>
+
+            <div class="form-group" id="monthly-day-group" hidden>
+                <label for="monthly-day">Day of the Month</label>
+                <select id="monthly-day"></select>
+                <span class="recurrence-help">For shorter months, this class uses the last day of the month.</span>
             </div>
 
             <div class="form-group">
@@ -477,6 +584,14 @@
                 <label for="url">Zoom / Link URL</label>
                 <input type="url" id="url" placeholder="https://zoom.us..." required>
             </div>
+
+            <label class="setting-row lesson-enabled-row is-enabled" for="lesson-enabled" id="lesson-enabled-row">
+                <span class="setting-copy">
+                    <strong id="lesson-enabled-label">Reminders enabled</strong>
+                    <span id="lesson-enabled-help">This lesson will send alerts on its schedule.</span>
+                </span>
+                <input id="lesson-enabled" class="toggle-input" type="checkbox" checked>
+            </label>
 
             <button id="save" class="btn-primary">Save Class</button>
             <button id="cancel-edit" class="btn-secondary" type="button" hidden>Cancel Edit</button>

@@ -68,7 +68,8 @@
         const pruned = {};
 
         for (const [key, timestamp] of Object.entries(records || {})) {
-            const recordDate = new Date(key.slice(0, 10) + 'T00:00:00');
+            const dateMatch = key.match(/(?:^|\|)(\d{4}-\d{2}-\d{2})(?:\||$)/);
+            const recordDate = new Date((dateMatch ? dateMatch[1] : key.slice(0, 10)) + 'T00:00:00');
             if (!Number.isNaN(recordDate.getTime()) && recordDate >= cutoff) {
                 pruned[key] = timestamp;
             }
@@ -205,6 +206,28 @@
             }
         });
         return { lessons, errors };
+    }
+
+    function normalizeConfig(config, idFactory = createLessonId) {
+        if (!config || config.configVersion !== 2) {
+            return { lessons: [], errors: ['This configuration file is not supported. Export a new Class Alert configuration.'] };
+        }
+
+        const normalized = normalizeLessons(config.lessons, idFactory);
+        if (normalized.errors.length) return normalized;
+
+        const errors = [];
+        for (let index = 0; index < normalized.lessons.length; index += 1) {
+            for (let otherIndex = index + 1; otherIndex < normalized.lessons.length; otherIndex += 1) {
+                const first = normalized.lessons[index];
+                const second = normalized.lessons[otherIndex];
+                const conflict = lessonsConflict(first, second);
+                if (conflict.conflict) {
+                    errors.push(`“${first.name}” conflicts with “${second.name}” at ${first.time}. Choose another time or recurrence.`);
+                }
+            }
+        }
+        return errors.length ? { lessons: [], errors } : { lessons: normalized.lessons, errors: [] };
     }
 
     function cloneJson(value) {
@@ -356,6 +379,17 @@
         return [String(lessonId), dateKey, String(scheduledTime).slice(11, 16)].join('|');
     }
 
+    function getNextAlarmPlan(lesson, now, leadMinutes) {
+        const next = getNextSchedulableOccurrence(lesson, now, leadMinutes, MIN_ALARM_LEAD_MS);
+        if (!next) return null;
+        return {
+            alarmName: lesson.id,
+            when: next.alertDate.getTime(),
+            occurrenceKey: createLessonOccurrenceKey(lesson.id, next.dateKey, next.scheduledTime),
+            skippedImmediateOccurrence: Boolean(next.skippedImmediateOccurrence)
+        };
+    }
+
     return {
         DEFAULT_ALERT_SETTINGS,
         ALLOWED_LEAD_MINUTES,
@@ -374,12 +408,14 @@
         isAllowedClassUrl,
         normalizeLesson,
         normalizeLessons,
+        normalizeConfig,
         migrateLegacySchedule,
         isLessonOccurrenceOnDate,
         getNextLessonOccurrence,
         getNextSchedulableOccurrence,
         lessonsConflict,
         findLessonConflict,
-        createLessonOccurrenceKey
+        createLessonOccurrenceKey,
+        getNextAlarmPlan
     };
 });

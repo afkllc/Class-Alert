@@ -256,3 +256,54 @@ test('invalid legacy schedule returns errors without dropping source data', () =
     assert.equal(result.errors.length, 1);
     assert.deepEqual(result.sourceBackup, legacy);
 });
+
+test('v2 config normalization preserves paused lessons', () => {
+    const result = utils.normalizeConfig({
+        configVersion: 2,
+        lessons: [lesson({ enabled: false })]
+    });
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.lessons[0].enabled, false);
+});
+
+test('v2 config normalization reports conflicts before replacement', () => {
+    const result = utils.normalizeConfig({
+        configVersion: 2,
+        lessons: [
+            lesson({ id: 'one', name: 'Math' }),
+            lesson({ id: 'two', name: 'Reading' })
+        ]
+    });
+    assert.equal(result.lessons.length, 0);
+    assert.match(result.errors[0], /Math/);
+    assert.match(result.errors[0], /Reading/);
+});
+
+test('v2 config normalization rejects malformed recurrence data', () => {
+    const result = utils.normalizeConfig({
+        configVersion: 2,
+        lessons: [lesson({ recurrence: { type: 'monthly', dayOfMonth: 0 } })]
+    });
+    assert.equal(result.lessons.length, 0);
+    assert.match(result.errors[0], /monthly day/);
+});
+
+test('alarm plan schedules one active lesson alarm', () => {
+    const item = lesson({ id: 'lesson-42', time: '17:00' });
+    const plan = utils.getNextAlarmPlan(item, new Date(2026, 8, 21, 12, 0, 0), 0);
+    assert.equal(plan.alarmName, 'lesson-42');
+    assert.equal(plan.when, new Date(2026, 8, 21, 17, 0, 0).getTime());
+    assert.equal(plan.occurrenceKey, 'lesson-42|2026-09-21|17:00');
+    assert.equal(plan.skippedImmediateOccurrence, false);
+});
+
+test('alarm plan skips a too-soon occurrence without throwing', () => {
+    const item = lesson({ id: 'lesson-42', time: '17:00' });
+    const plan = utils.getNextAlarmPlan(item, new Date(2026, 8, 21, 16, 59, 15), 0);
+    assert.equal(plan.when, new Date(2026, 8, 28, 17, 0, 0).getTime());
+    assert.equal(plan.skippedImmediateOccurrence, true);
+});
+
+test('disabled lesson has no alarm plan', () => {
+    assert.equal(utils.getNextAlarmPlan(lesson({ enabled: false }), new Date(), 0), null);
+});

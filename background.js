@@ -1,85 +1,143 @@
-// Empty first-run schedule. Users add their own classes through the options page.
-const CLASS_SCHEDULE = {};
 const DEFAULT_ALERT_SETTINGS = ClassAlertUtils.DEFAULT_ALERT_SETTINGS;
-const ALERT_CATCH_UP_MINUTES = 5;
-
-let lastTriggeredSlot = "";
+const CONFIG_VERSION = 2;
 
 browser.runtime.onInstalled.addListener(() => {
-    browser.storage.local.get({ classSchedule: null }).then((result) => {
-        if (result.classSchedule === null) {
-            return browser.storage.local.set({ classSchedule: CLASS_SCHEDULE });
-        }
-    }).then(() => {
-        keepExtensionAlive();
+    ensureScheduleStorage().then(rebuildLessonAlarms).catch((error) => {
+        console.error('Class Alert could not prepare its schedule:', error);
     });
 });
 
 browser.runtime.onStartup.addListener(() => {
-    keepExtensionAlive();
+    rebuildLessonAlarms().catch((error) => {
+        console.error('Class Alert could not rebuild its alarms:', error);
+    });
 });
 
-function keepExtensionAlive() {
-    browser.alarms.create("persistentWakeup", { periodInMinutes: 1 });
-}
+browser.runtime.onMessage.addListener((message) => {
+    if (!message || ![
+        'scheduleChanged',
+        'lessonDeleted',
+        'lessonPaused',
+        'lessonResumed',
+        'clearAllLessons'
+    ].includes(message.type)) return undefined;
+
+    return rebuildLessonAlarms().catch((error) => {
+        console.error('Class Alert could not update its alarms:', error);
+    });
+});
 
 browser.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "persistentWakeup") {
-        checkSchedule();
-    }
+    handleLessonAlarm(alarm).catch((error) => {
+        console.error('Class Alert could not handle its alarm:', error);
+    });
 });
 
-setInterval(() => {
-    checkSchedule();
-}, 1000);
+async function ensureScheduleStorage() {
+    const result = await browser.storage.local.get({ configVersion: null, lessons: null, classSchedule: null });
+    if (result.configVersion === CONFIG_VERSION && Array.isArray(result.lessons)) return;
 
-function checkSchedule() {
-    const now = new Date();
-    const runtimeSlot = ClassAlertUtils.getRuntimeMinuteKey(now);
-    if (lastTriggeredSlot === runtimeSlot) return;
-    lastTriggeredSlot = runtimeSlot;
+    if (result.classSchedule !== null) {
+        const migrated = ClassAlertUtils.migrateLegacySchedule(result.classSchedule || {});
+        const values = {
+            configVersion: CONFIG_VERSION,
+            lessons: migrated.lessons,
+            legacyScheduleBackup: migrated.sourceBackup
+        };
+        if (migrated.errors.length) {
+            values.migrationStatus = { errors: migrated.errors, createdAt: new Date().toISOString() };
+        }
+        await browser.storage.local.set(values);
+        return;
+    }
 
-    browser.storage.local.get({
-        classSchedule: {},
+    await browser.storage.local.set({ configVersion: CONFIG_VERSION, lessons: [] });
+}
+
+async function readSchedule() {
+    await ensureScheduleStorage();
+    return browser.storage.local.get({
+        configVersion: CONFIG_VERSION,
+        lessons: [],
         alertSettings: DEFAULT_ALERT_SETTINGS,
         handledAlertOccurrences: {}
-    }).then(async (result) => {
-        const settings = ClassAlertUtils.normalizeAlertSettings(result.alertSettings, DEFAULT_ALERT_SETTINGS);
-        const schedule = result.classSchedule;
-        const handledOccurrences = ClassAlertUtils.pruneHandledOccurrences(
-            result.handledAlertOccurrences,
-            ClassAlertUtils.getScheduledSlot(now, 0).dateKey
-        );
-
-        for (const scheduledSlot of ClassAlertUtils.getAlertCandidateSlots(
-            now,
-            settings.alertLeadMinutes,
-            ALERT_CATCH_UP_MINUTES
-        )) {
-            const currentClass = schedule[scheduledSlot.dayKey] && schedule[scheduledSlot.dayKey][scheduledSlot.timeKey];
-            if (!currentClass) continue;
-
-            const occurrenceKey = ClassAlertUtils.createOccurrenceKey(scheduledSlot, currentClass);
-            if (ClassAlertUtils.hasHandledOccurrence(handledOccurrences, occurrenceKey)) continue;
-
-            handledOccurrences[occurrenceKey] = new Date().toISOString();
-            await browser.storage.local.set({ handledAlertOccurrences: handledOccurrences });
-
-            try {
-                const alertSettings = {
-                    ...settings,
-                    alertTitle: ClassAlertUtils.getEffectiveAlertTitle(settings)
-                };
-                await openAlertTab(currentClass.name, currentClass.url, alertSettings);
-            } catch (error) {
-                delete handledOccurrences[occurrenceKey];
-                await browser.storage.local.set({ handledAlertOccurrences: handledOccurrences });
-                console.error('Class Alert could not open alert tab:', error);
-            }
-        }
-    }).catch((error) => {
-        console.error('Class Alert schedule check failed:', error);
     });
+}
+
+async function rebuildLessonAlarms() {
+    const result = await readSchedule();
+    const lessons = Array.isArray(result.lessons) ? result.lessons : [];
+    const enabledIds = new Set(lessons.filter((lesson) => lesson.enabled !== false).map((lesson) => lesson.id));
+    const existingAlarms = await browser.alarms.getAll();
+
+    await Promise.all(existingAlarms.map((alarm) => {
+        if (alarm.name === 'persistentWakeup' || !enabledIds.has(alarm.name)) return browser.alarms.clear(alarm.name);
+        return browser.alarms.clear(alarm.name);
+    }));
+
+    const settings = ClassAlertUtils.normalizeAlertSettings(result.alertSettings, DEFAULT_ALERT_SETTINGS);
+    await Promise.all(lessons.filter((lesson) => lesson.enabled !== false).map((lesson) => scheduleLessonAlarm(lesson, settings)));
+}
+
+async function scheduleLessonAlarm(lesson, settings) {
+    const plan = ClassAlertUtils.getNextAlarmPlan(lesson, new Date(), settings.alertLeadMinutes);
+    if (!plan) return;
+
+    await browser.alarms.create(plan.alarmName, { when: plan.when });
+    const scheduledAlarm = await browser.alarms.get(plan.alarmName);
+    if (!scheduledAlarm || scheduledAlarm.scheduledTime < Date.now()) {
+        await browser.alarms.clear(plan.alarmName);
+        throw new Error(`Firefox did not accept a future alert time for ${lesson.name}.`);
+    }
+}
+
+async function handleLessonAlarm(alarm) {
+    if (!alarm || alarm.name === 'persistentWakeup') return;
+
+    const result = await readSchedule();
+    const lesson = result.lessons.find((item) => item.id === alarm.name);
+    if (!lesson || lesson.enabled === false) {
+        await browser.alarms.clear(alarm.name);
+        return;
+    }
+
+    const settings = ClassAlertUtils.normalizeAlertSettings(result.alertSettings, DEFAULT_ALERT_SETTINGS);
+    const occurrence = ClassAlertUtils.getNextLessonOccurrence(
+        lesson,
+        new Date(alarm.scheduledTime - 1),
+        settings.alertLeadMinutes
+    );
+    if (!occurrence) {
+        await scheduleLessonAlarm(lesson, settings);
+        return;
+    }
+
+    const occurrenceKey = ClassAlertUtils.createLessonOccurrenceKey(lesson.id, occurrence.dateKey, occurrence.scheduledTime);
+    const handledOccurrences = ClassAlertUtils.pruneHandledOccurrences(
+        result.handledAlertOccurrences,
+        occurrence.dateKey
+    );
+    if (!ClassAlertUtils.hasHandledOccurrence(handledOccurrences, occurrenceKey)) {
+        handledOccurrences[occurrenceKey] = new Date().toISOString();
+        await browser.storage.local.set({ handledAlertOccurrences: handledOccurrences });
+        try {
+            await openAlertTab(lesson.name, lesson.url, {
+                ...settings,
+                alertTitle: ClassAlertUtils.getEffectiveAlertTitle(settings)
+            });
+        } catch (error) {
+            delete handledOccurrences[occurrenceKey];
+            await browser.storage.local.set({ handledAlertOccurrences: handledOccurrences });
+            await browser.storage.local.set({ lastAlarmError: {
+                message: 'Class Alert could not open one alert. The lesson remains scheduled and will be retried at its next occurrence.',
+                lessonId: lesson.id,
+                createdAt: new Date().toISOString()
+            } });
+            console.error('Class Alert could not open alert tab:', error);
+        }
+    }
+
+    await scheduleLessonAlarm(lesson, settings);
 }
 
 function openAlertTab(className, classUrl, settings) {
