@@ -25,7 +25,7 @@
 - Separate lessons are never silently merged or deduplicated.
 - The extension must not use `setInterval` for schedule reliability.
 - Firefox alarms are one-shot future wakeups; rebuild them on install and startup because alarms do not persist across browser sessions.
-- A requested alert less than one minute in the future must produce an explicit user-facing error.
+- A requested alert less than one minute in the future must skip only the immediate occurrence, schedule the next valid occurrence, and produce an explicit user-facing warning.
 - The new source image is `icon_source.png`; it must not ship inside the release ZIP.
 - No new dependency is required for runtime or tests.
 
@@ -51,6 +51,7 @@
 - Produces `migrateLegacySchedule(classSchedule, idFactory)` returning `{ lessons, errors, sourceBackup }`.
 - Produces `isLessonOccurrenceOnDate(lesson, date)` returning a boolean.
 - Produces `getNextLessonOccurrence(lesson, fromDate, leadMinutes)` returning `{ date, dateKey, scheduledTime, alertTime, alertDate }` or `null`.
+- Produces `getNextSchedulableOccurrence(lesson, fromDate, leadMinutes, minimumLeadMs)` returning the same shape plus `skippedImmediateOccurrence`.
 - Produces `lessonsConflict(candidate, existing)` returning `{ conflict: boolean, reason }`.
 - Produces `findLessonConflict(candidate, lessons, excludeId)` returning `{ conflict: boolean, lesson, message }` or `null`.
 - Produces `createLessonOccurrenceKey(lessonId, occurrenceDate, scheduledTime)` returning a stable string.
@@ -91,7 +92,7 @@ test('next occurrence uses local alert lead time and selected recurrence', () =>
 });
 ```
 
-Also add tests for monthly leap-year behavior, no matching unrelated dates, disabled lessons returning no occurrence, midnight/week boundary behavior, and a requested alert less than one minute away being identified by `isAlertTimeTooSoon`.
+Also add tests for monthly leap-year behavior, no matching unrelated dates, disabled lessons returning no occurrence, midnight/week boundary behavior, a requested alert less than one minute away being skipped in favor of the next recurrence, and proof that every date helper leaves its input `Date` unchanged.
 
 - [ ] **Step 2: Run the focused tests and verify failure.**
 
@@ -124,7 +125,7 @@ Use the project’s current URL validation rules. Do not generate IDs from names
 
 - [ ] **Step 4: Implement recurrence date calculation.**
 
-Implement `isLessonOccurrenceOnDate` using local `Date` values. For monthly recurrence, compare the requested day with `Math.min(dayOfMonth, daysInMonth)`. Implement `getNextLessonOccurrence` by scanning local calendar dates forward from the current local date, selecting the first matching occurrence and constructing the scheduled local timestamp from `lesson.time`. Return `null` for disabled lessons.
+Implement `isLessonOccurrenceOnDate` using local `Date` values. For monthly recurrence, compare the requested day with `Math.min(dayOfMonth, daysInMonth)`. Implement `getNextLessonOccurrence` by cloning the input date before advancing local calendar dates; never call mutating setters on the caller's `Date` object. Search only the bounded recurrence window needed for the next match: at most 7 days for weekly rules and 31 days for monthly rules. Return `null` for disabled lessons. Implement `getNextSchedulableOccurrence` as a separate wrapper that skips a current occurrence whose alert time is before `now + minimumLeadMs` and selects the next recurrence. A valid recurring lesson must always yield a future schedulable occurrence.
 
 Reject impossible or past alert targets only at the scheduling boundary; recurrence calculation itself must remain deterministic for tests.
 
@@ -134,7 +135,7 @@ Compare only enabled lessons with equal `time`. Define recurrence overlap precis
 
 - Weekly/weekly: selected day arrays intersect.
 - Monthly/monthly: evaluate representative month lengths 28, 29, 30, and 31; if both rules map to the same day for any length, they conflict.
-- Weekly/monthly: evaluate the Gregorian 400-year cycle with `isLessonOccurrenceOnDate`; if any date matches both rules, they conflict. This is finite and exact for Gregorian weekly/monthly rules.
+- Weekly/monthly: return a conflict directly when both lessons have the same time and both recurrence rules are valid, because every valid monthly day occurs on every weekday across the Gregorian calendar. Do not scan 146,097 days during form input or save.
 
 Return a short reason suitable for the UI, such as `Mondays at 17:00` or `a shared month-end date at 14:00`. Do not compare URL or class name; different lessons still conflict when their active occurrences overlap.
 
@@ -205,7 +206,7 @@ Use messages such as:
 
 - `Choose at least one weekday.`
 - `Choose a monthly day from 1 to 31.`
-- `This class starts too soon for a reliable alert. Choose a time at least one minute from now.`
+- `Saved. This class starts too soon for a reliable alert today. The next alert is scheduled for 2026-09-28 at 17:00.`
 - `Cannot save “Math tutoring.” It conflicts with “Reading support” on Mondays at 17:00. Choose another time or remove that day.`
 
 - [ ] **Step 5: Implement pause/resume and delete transactions.**
@@ -256,28 +257,29 @@ git commit -m "feat: add editable recurring lesson management"
 - Test: `tests/schedule-utils.test.js` for alarm planning helpers
 
 **Interfaces:**
-- Consumes v2 lessons and Task 1 `getNextLessonOccurrence`, `createLessonOccurrenceKey`, and validation helpers.
+- Consumes v2 lessons and Task 1 `getNextSchedulableOccurrence`, `createLessonOccurrenceKey`, and validation helpers.
 - Consumes `scheduleChanged` runtime messages from options.
 - Owns alarm names equal to lesson IDs.
 - Exposes no new user-facing API.
 
 - [ ] **Step 1: Add failing tests for next-alarm planning.**
 
-Test that active weekly and monthly lessons produce the correct next alert timestamp, disabled lessons produce no alarm plan, and a target under 60 seconds is rejected. Test that a monthly 31st lesson schedules February 28 or February 29 correctly.
+Test that active weekly and monthly lessons produce the correct next alert timestamp, disabled lessons produce no alarm plan, and a target under 60 seconds skips only the immediate occurrence. Test that a monthly 31st lesson schedules February 28 or February 29 correctly.
 
 - [ ] **Step 2: Implement alarm plan helpers.**
 
-Add pure `getNextAlarmPlan(lesson, now, leadMinutes)` returning either:
+Add pure `getNextAlarmPlan(lesson, now, leadMinutes)` using `getNextSchedulableOccurrence` and returning either:
 
 ```js
 {
     alarmName: lesson.id,
     when: next.alertDate.getTime(),
-    occurrenceKey: createLessonOccurrenceKey(lesson.id, next.dateKey, lesson.time)
+    occurrenceKey: createLessonOccurrenceKey(lesson.id, next.dateKey, lesson.time),
+    skippedImmediateOccurrence: next.skippedImmediateOccurrence
 }
 ```
 
-or `{ error: 'too-soon', message: 'This class starts too soon for a reliable alert. Choose a time at least one minute from now.' }`.
+with `skippedImmediateOccurrence: true` when the current recurrence was too close, or `null` for disabled lessons. It must not throw for a valid recurring lesson because its current occurrence is too close or already past.
 
 - [ ] **Step 3: Implement storage-driven alarm rebuild.**
 

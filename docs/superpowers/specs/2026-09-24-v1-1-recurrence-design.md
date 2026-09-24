@@ -81,7 +81,7 @@ Existing alert settings and theme settings remain top-level configuration values
 
 The alarm engine schedules one exact, one-shot `browser.alarms` alarm for the next occurrence of each enabled lesson. Alarm names use the stable lesson ID. The engine does not depend on `setInterval` or a background page remaining awake.
 
-Firefox alarms are a wake-up mechanism, not a guarantee of millisecond-level delivery. The implementation must treat a requested alert less than one minute in the future as too close for a reliable schedule and show: `This class starts too soon for a reliable alert. Choose a time at least one minute from now.` The current Mozilla documentation does not establish a Firefox-specific one-minute clamp, so the implementation must verify accepted scheduling with `browser.alarms.get()` and handle rejection or adjustment explicitly.
+Firefox alarms are a wake-up mechanism, not a guarantee of millisecond-level delivery. The current Mozilla documentation does not establish a Firefox-specific one-minute clamp, so the implementation must verify accepted scheduling with `browser.alarms.get()` and handle rejection or adjustment explicitly. A valid recurring lesson whose next alert is less than one minute away must not fail validation or break startup. Skip only that immediate occurrence, schedule the next recurrence at least one minute ahead, and show: `Saved. This class starts too soon for a reliable alert today. The next alert is scheduled for [date and time].`
 
 The engine must:
 
@@ -106,6 +106,7 @@ If Firefox is fully closed, the extension cannot open an alert during that perio
 - Separate lessons remain separate alerts, even if month-end overflow maps them to the same date and time.
 
 All date calculations use the browser's existing local-time behavior. Time-zone management is outside v1.1 scope.
+Date utility functions must not mutate caller-provided `Date` objects. Every calendar advance operates on a clone, so startup reconciliation cannot corrupt its reference time.
 
 ## Conflict prevention
 
@@ -115,7 +116,7 @@ Before saving or importing an enabled lesson, compare it with every other enable
 
 - Weekly lessons conflict when selected weekdays intersect and start times match.
 - Monthly lessons conflict when their rules can produce the same calendar date and start time, including month-end overflow.
-- Weekly and monthly lessons conflict when their recurrence rules can produce the same calendar date and start time.
+- Weekly and monthly lessons conflict when their recurrence rules can produce the same calendar date and start time. Every valid monthly day occurs on every weekday across the Gregorian calendar, so this case can be decided directly without scanning calendar dates.
 - Different start times are allowed because duration is not modeled.
 - Paused lessons do not reserve active alert slots. Resuming a lesson runs conflict validation again.
 
